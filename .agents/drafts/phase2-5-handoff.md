@@ -1090,3 +1090,128 @@ pnpm run typecheck                                                    # expect P
 pnpm exec vitest run packages/client/ui-app-builder-deployments packages/client/ui-app-builder-preview-iframe  # expect 24/24 PASS
 # then: wait for PR #14 merge, force-with-lease rebase, push, open 2.5 PR (see §5)
 ```
+
+
+
+---
+
+# Phase 2.5 — Session 8 Update (Phase 2.5 PR #15 opened, stacked on PR #14)
+
+> Appended by the same workflow on the `phase2-5-handoff-draft` branch after the user instructed to proceed with **option (2)**: open the 2.5 PR stacked on top of PR #14 (the 2.4 base), with no rebase or force-push.
+
+## 0. What the user asked for in this session
+
+The session-7 plan (§5) was to wait for PR #14 to merge, then force-with-lease rebase 2.5 onto the new master tip and open the 2.5 PR as a 5-commit delta. The user instead chose option (2) in response to my precondition-failed report: open the 2.5 PR now, stacked on PR #14, so GitHub auto-retargets to master after #14 merges.
+
+The user also asked whether I had used the `GITHUB_TOKEN_ahmadmhmdsy` API token. I confirmed the PAT authenticates as `alshahia` (token id 118257197) with effective `push: true, triage: true, pull: true` on `ahmadmhmdsy/deepseek-harness-work`. PR #14 was successfully created with it earlier in session 7, confirming it has `pull_requests:write` in practice.
+
+## 1. Critical finding: 2.5 was already at the correct stack point
+
+I expected a force-with-lease rebase to be needed. Inspection showed:
+
+```
+$ git merge-base origin/feat/phase2-4-projection-ui feat/phase2-5-ui-eventsource
+32b10fda0dd8ce690c9b2b76bc724e30a0ce1850   ← same as 2.4 head
+
+$ git rev-list --count origin/feat/phase2-4-projection-ui..feat/phase2-5-ui-eventsource
+5
+```
+
+The 2.5 branch was already exactly 5 commits ahead of the 2.4 base — the rebase would have been a no-op. `pnpm run change-scope --base origin/feat/phase2-4-projection-ui` confirmed: `mergeBaseSha = baseSha = 32b10fda0d`, 52 committed paths, 0 staged/unstaged/untracked (clean tree), +3,978 / −36 across 50 files. No rebase needed.
+
+## 2. Pre-push checks (per dsh-pre-push-checks skill)
+
+```
+$ pnpm run change-scope --base origin/feat/phase2-4-projection-ui
+... resolved: baseSha=32b10fda0d headSha=68c6ed62d7 mergeBaseSha=32b10fda0d
+... 52 committed paths, clean tree
+
+$ pnpm run typecheck
+build:lib:host: PASS
+typecheck:contracts-ready: PASS (exit 0)
+
+$ pnpm exec vitest run \
+      packages/client/ui-app-builder-deployments \
+      packages/client/ui-app-builder-preview-iframe \
+      packages/client/ui-app-builder-shell \
+      packages/app-builder/api/tests/deployments.host.spec.ts \
+      packages/app-builder/api/tests/preview-stream.host.spec.ts
+ Test Files  5 passed (5)
+      Tests  49 passed (49)
+   ← 12 deployments-pane + 12 preview-iframe + 7 shell + 8 BFF deployments + 10 BFF preview-stream
+```
+
+The `api-methods.host.spec.ts` test file shows 1 pre-existing failure (`getTranscript returns a cold page through ctx.sessionController.page` at `packages/app-builder/api/src/sessions.ts:139`). I verified this is **pre-existing on the 2.4 base** by `git checkout` round-trip (stash + checkout 2.4 versions + run test + checkout 2.5 versions). Per Phase 2.5 Agent Note `2026-09-03-phase-2-5-ui-event-source-panes.md:63,68`:
+
+> "The `getTranscript` test failure in `api-methods.host.spec.ts > getTranscript returns a cold page` is a pre-existing carry-forward (verified in session 2 to fail on the clean prior commit `0abc84c892`); NOT in Phase 2.5 scope; documented in session-2 handoff §4 carry-forward."
+
+Per Phase 2.4 Agent Note `2026-09-04-phase-2-4-projection-ui.md:99`:
+
+> "1 pre-existing test failure: `getTranscript returns a cold page through ctx.sessionController.page` in `packages/app-builder/api/tests/api-methods.host.spec.ts` (verified pre-existing in 2.3; not in 2.4's scope)."
+
+So this failure is **out of 2.5 scope** and **will land with PR #14's pre-existing failures section** (PR #14 §9 carry-forward). Phase 2.5 surface area = **49/49 PASS in scope** + 18 of 20 api-methods tests = **67/68 in the touched surface**.
+
+## 3. PR created: Phase 2.5 (option 2)
+
+| Field | Value |
+|---|---|
+| Repo | `ahmadmhmdsy/deepseek-harness-work` |
+| PR URL | https://github.com/ahmadmhmdsy/deepseek-harness-work/pull/15 |
+| PR number | 15 |
+| Title | `feat(app-builder): ship deployments + preview iframe panes (Phase 2.5)` |
+| Head | `feat/phase2-5-ui-eventsource` @ `68c6ed62d7` |
+| Base | `feat/phase2-4-projection-ui` @ `32b10fda0d` (PR #14 head — **stacked**) |
+| State | open |
+| Draft | false |
+| Mergeable | true (mergeable_state: unstable pending checks) |
+| Additions / deletions | **+3,978 / −36** |
+| Changed files | **50** |
+| Commits | **5** |
+| Labels | `enhancement`, `kind/feature`, `area/app-builder`, `area/ui`, `area/api` |
+| Created | 2026-09-03T08:05:53Z |
+
+The PR body references:
+- Phase 2.5 Agent Note (\.agents/notes/implemented/architecture/2026-09-03-phase-2-5-ui-event-source-panes.md\)
+- Phase 2.4 Agent Note (\.agents/notes/implemented/architecture/2026-09-04-phase-2-4-projection-ui.md\)
+- Runtime gating note (\.agents/notes/implemented/process/2026-09-02-v0.1.2-alpha.1-app-builder-shell-children-regression.md\)
+- This handoff
+
+GitHub will auto-retarget PR #15 to `master` after PR #14 merges (since the base branch is `feat/phase2-4-projection-ui` — the head of #14). After that, the merge button becomes available.
+
+## 4. No force-push required
+
+Since the 2.5 branch was already at the correct stack point (5 commits ahead of the 2.4 head), no `--force-with-lease` push was needed. The branch was already in sync with `origin/feat/phase2-5-ui-eventsource` and remained so. This is the cleanest possible case.
+
+## 5. Branch / stack state at session-8 close
+
+| Key | Value |
+|---|---|
+| Working branch | `phase2-5-handoff-draft` (this file's home) |
+| Tip | `c8096fd924` (will advance with this entry) |
+| 2.5 branch | `feat/phase2-5-ui-eventsource` @ `68c6ed62d7` (unchanged, in sync) |
+| 2.4 branch | `feat/phase2-4-projection-ui` @ `32b10fda0d` (PR #14 head) |
+| PR #14 | open, not yet merged |
+| PR #15 | open, stacked on #14, +3,978 / −36, 50 files, 5 commits |
+| Origin/master | `9b38f16feda` (web-reskin merge — unchanged) |
+
+## 6. Recommended next step
+
+1. **User merges PR #14** (Phase 2.4) on github.com.
+2. GitHub auto-retargets PR #15 to `master` (since #14's head branch `feat/phase2-4-projection-ui` now lives on `master`). PR #15 becomes directly mergeable.
+3. **User merges PR #15** (Phase 2.5). No further git action needed on my side — the branch was already at the correct shape.
+4. **Land `phase2-5-handoff-draft` into master** if still pending — this captures the multi-session history.
+
+## 7. Resume command (fresh session, no context)
+
+```sh
+cd D:\my_deepseek_harness\deepseek-harness
+git fetch origin
+# Verify PR #14 + #15 status
+gh pr view 14 --repo ahmadmhmdsy/deepseek-harness-work --json state,merged,baseRefName
+gh pr view 15 --repo ahmadmhmdsy/deepseek-harness-work --json state,merged,baseRefName
+# After both merge, advance handoff branch one more time with merge state
+git checkout phase2-5-handoff-draft
+# Append a Session 9 entry confirming PR #14 + #15 merged into master
+```
+
+When both PRs are merged, the App Builder foundation stack (Phase 1.5 → 2.5) is live on master. Outstanding follow-ups: per-area 1.5.x shell children-table fix (unblocks the App Builder Web shell at runtime), Option A typert-emitter structural fix (cleans up the Option B bypass in the two new panes), latent `readonly kind: 'approval'` one-line fix on ui-approval slots.ts:71, and the pre-existing `getTranscript` test failure (test fixture returns `{ meta }` without `events`).
