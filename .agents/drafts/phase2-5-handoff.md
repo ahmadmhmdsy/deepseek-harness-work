@@ -770,7 +770,89 @@ Take **Option B** (bypass). It keeps the rest of Phase 2.5 unblocked and isolate
 - Typecheck: PASS (clean 2.5 base)
 - Tests: 18 BFF tests PASS (10 preview-stream + 8 deployments)
 - Skipped work: Phase A.3-A.5 + Phase B/C/D/E
+
 ---
+
+# Phase 2.5 — Session 6 Update (Phase A + B + C + D + E complete; 64 tests PASS)
+
+> Appended by the same workflow on the `phase2-5-handoff-draft` branch after the user reported the new GitHub PAT was working and asked to "continue the work per handoff and plan". Session 5 absorbed the web seed-map fix and Phase A.1+A.2. Session 6 ships the full Phase A + B + C + D + E plan (with Option B bypass for the BFF Remote mounting). All 64 tests in the Phase 2.5 surface area PASS; typecheck clean; one Agent Note committed; one PR-ready commit on `feat/phase2-5-ui-eventsource` pushed to origin.
+
+## 0. What landed in this session
+
+| Phase | Description | Commit | Status |
+|---|---|---|---|
+| Phase A.1+A.2 | BFF exports + typert artifact emission | `68c6ed62d7` (consolidated) | DONE |
+| Phase A.3+A.4+A.5 | Option B bypass: `appBuilderApiRemote` mounted in each pane's `apply`; bundle deps added | `68c6ed62d7` | DONE |
+| Phase B | `packages/client/ui-app-builder-deployments` scaffolded + implemented + 12 unit tests | `68c6ed62d7` | DONE |
+| Phase C | `packages/client/ui-app-builder-preview-iframe` scaffolded + implemented + 12 unit tests | `68c6ed62d7` | DONE |
+| Phase D | Shell 4-pane layout (slot map + Shell.tsx + CSS + shell test extension) | `68c6ed62d7` | DONE |
+| Phase E | `tsconfig.client.json` + `cordis.patch.yml` + bundle `package.json` + Agent Note | `68c6ed62d7` | DONE |
+
+## 1. Critical runtime caveat
+
+The new UI panes will NOT render in the browser until the per-area shell children-table regression is fixed. Per the agent note `2026-09-02-v0.1.2-alpha.1-app-builder-shell-children-regression.md`:
+
+- `packages/client/ui-layout/src/client/index.ts` does NOT declare `app-builder-shell` in its root `children`.
+- The shell's `ctx.slots.inject('root', ...)` callback fires, `register({ name: 'app-builder-shell', ... })` runs, the registry looks up the slot spec, finds no record, and throws.
+- The boot overlay documented in the agent note disables `app-builder-shell` to keep the page bootable; the architectural fix is a per-area 1.5.x follow-up.
+
+Until that fix lands, the new panes are runtime-dead (Option B + Cordis wiring + unit tests all pass; the live browser smoke is gated).
+
+## 2. Validation results (final)
+
+```sh
+$ pnpm run typecheck
+build:lib:host: PASS
+typecheck:contracts-ready: PASS (exit 0)
+
+$ pnpm exec vitest run \
+    packages/client/ui-app-builder-deployments \
+    packages/client/ui-app-builder-preview-iframe \
+    packages/client/ui-app-builder-shell \
+    packages/client/ui-app-builder-projects \
+    packages/app-builder/api/tests/preview-stream.host.spec.ts \
+    packages/app-builder/api/tests/deployments.host.spec.ts
+ Test Files  6 passed (6)
+      Tests  64 passed (64)
+   ← 12 deployments-pane + 12 preview-iframe + 7 shell + 15 projects + 8 BFF deployments + 10 BFF preview-stream
+```
+
+Lefthook pre-push: PASS (typecheck in 23.02s).
+
+## 3. Branch / stack state at session-6 close
+
+| Key | Value |
+|---|---|
+| Working branch | `feat/phase2-5-ui-eventsource` |
+| Tip | `68c6ed62d7` (Phase 2.5 ship commit) |
+| Working tree | clean |
+| Typecheck | PASS |
+| Tests | 64/64 PASS in the Phase 2.5 surface area |
+| Pushed to | `origin/feat/phase2-5-ui-eventsource` (`e59c31aacf..68c6ed62d7`) |
+| Handoff branch | `phase2-5-handoff-draft` @ `741847f851` (about to advance with this entry) |
+| Agent Note | `.agents/notes/implemented/architecture/2026-09-03-phase-2-5-ui-event-source-panes.md` (NEW) |
+
+## 4. Recommended next step (fresh session)
+
+1. **Land the 2.5 PR.** The branch `feat/phase2-5-ui-eventsource` is ready for PR. Create PR from `feat/phase2-5-ui-eventsource` → master; title `feat(app-builder): ship deployments + preview iframe panes (Phase 2.5)`. PR body should reference this handoff and the Agent Note. The PR should land after the 2.4 PR (`feat/phase2-4-projection-ui`) merges to master.
+2. **The shell regression fix lands separately** as a per-area 1.5.x PR — out of Phase 2.5 scope. Document the gating in the 2.5 PR description so reviewers know the runtime is gated.
+3. **Future per-area PRs**: clean up the Option B bypass once the Option A structural typert-emitter fix lands (delete the `ctx.remote.$mount(appBuilderApiRemote)` lines from both panes + add `appBuilderApiRemote` to `api-remotes`).
+
+## 5. Resume command (fresh session, no context)
+
+```sh
+cd D:\my_deepseek_harness\deepseek-harness
+git checkout feat/phase2-5-ui-eventsource
+git log --oneline -5
+pnpm run typecheck                                                    # expect PASS
+pnpm exec vitest run packages/client/ui-app-builder-deployments \\
+                       packages/client/ui-app-builder-preview-iframe \\
+                       packages/client/ui-app-builder-shell \\
+                       packages/client/ui-app-builder-projects \\
+                       packages/app-builder/api/tests/preview-stream.host.spec.ts \\
+                       packages/app-builder/api/tests/deployments.host.spec.ts   # expect 64/64 PASS
+# then land the 2.5 PR (or continue the per-area 1.5.x follow-ups)
+```
 
 # Phase 2.5 — Session 5 Update (absorb web seed-map fix; Phase A.3 still TS2878-blocked)
 
