@@ -968,3 +968,125 @@ pnpm exec vitest run packages/app-builder/api/tests/preview-stream.host.spec.ts 
 pnpm exec vitest run packages/app-builder/api/tests/deployments.host.spec.ts    # expect 8/8 PASS
 # then resume at task 1 (Option B) → task 6 (UI panes) per session-3 task list
 ```
+
+
+# Phase 2.5 — Session 7 Update (Phase 2.4 PR #14 opened; 2.5 PR pending until 2.4 merges)
+
+## 0. What the user asked for in this session
+
+Land the 2.5 PR. After confirming `feat/phase2-5-ui-eventsource` is at the correct tip and `origin/master` is at `9b38f16feda` (web-reskin merge), the user selected **option (d)** of the PR-scope question: open the 2.4 PR against `master` first, then rebase 2.5 onto the new master tip and open the 2.5 PR as a separate stacked PR.
+
+## 1. PR created: Phase 2.4 (option d, step 1)
+
+| Field | Value |
+|---|---|
+| Repo | `ahmadmhmdsy/deepseek-harness-work` (PAT authenticates as `alshahia`) |
+| PR URL | https://github.com/ahmadmhmdsy/deepseek-harness-work/pull/14 |
+| PR number | 14 |
+| Title | `feat(app-builder): wire sessionCounts from projection cache to projects pane (Phase 2.4)` |
+| Head | `feat/phase2-4-projection-ui` @ `32b10fda0d` |
+| Base | `master` @ `9b38f16feda` (already-merged PR #2 web-reskin) |
+| Additions / deletions | +335,985 / −128,231 |
+| Changed files | 6,554 |
+| Commits | 1,095 |
+| Mergeable | true |
+| State | open |
+| Labels applied | `enhancement`, `kind/feature`, `area/app-builder`, `area/ui`, `area/api` |
+| Custom labels created (idempotent on re-run) | `kind/feature` (id 12048503783), `area/app-builder` (id 12048503914), `area/ui` (id 12048504149), `area/api` (id 12048504350) |
+
+## 2. Why the diff is huge (6554 files, not the 11 files the PR body describes)
+
+The PR body diffstat reports **11 files / +1033/−9** for the *per-phase* delta. The actual GitHub PR shows **6,554 files / +335,985/−128,231**. Both numbers are correct.
+
+**Reason**: the per-phase diff is relative to the parent branch (`feat/phase2-3-api-completion` per the body). The PR `compare` against `origin/master` includes the entire Phase 1.5 → 2.4 stack because no prior phase has landed on `master` yet.
+
+GitHub compare confirmed: `feat/phase2-4-projection-ui` is 1,095 commits ahead, 0 behind `master`. First-parent chain is 16 commits:
+
+```
+32b10fda0d feat(app-builder): wire sessionCounts (Phase2.4)
+bfba258158 feat(api): wire getUsage (Phase 2.3)
+c7951c4349 feat(tool-policy): ship ToolPolicy (Phase 2.2)
+6c610224fe feat(deployment): ship deployment pipeline (Phase 2.1)
+08e9f9e012 chore(docs/2.0): Phase 2 sub-phase plan
+26bf01ba4a chore(docs/1.5.7): 1.5.5 fixes + English-only policy
+1bc7a6b9f7 chore(planning): StrideTrust Android PRD
+6a1862bb27 fix(subagent): live model selection (Phase 1.5 / 1.5.6)
+8994998859 feat(api): App Builder Host BFF cluster (1.5.5)
+8a28421e02 feat(project): projection cache (1.5.4)
+098f7cad1c feat(apps/web): reskin shell (1.5.3)
+58ad73791e feat(examples): relocate app-builder (1.5.2)
+f7386f0f97 docs(notes): Agent Note 1.5.1 upstream merge
+515fa46121 fix(llm-pi-ai): classify compat fields
+f2e9585b13 merge: bring upstream dsh-v0.1.2-alpha.1 into fork
+cc317420c3 planning: add Phase 1.5 (Upstream Sync)
+```
+
+This is the deliberate trade-off the user accepted with option (d): one large PR rather than 5 stacked PRs. AGENTS.md "Choose PR history deliberately" was discussed in the user prompt before option selection.
+
+## 3. Pre-push checks run on the 2.4 branch
+
+Per the `dsh-pre-push-checks` skill:
+
+```
+$ git checkout feat/phase2-4-projection-ui
+$ pnpm run typecheck
+...
+EXIT=0   # PASS
+
+$ pnpm exec vitest run \
+    packages/app-builder/snapshot-bridge/tests/snapshot-session-counts.spec.ts \
+    packages/client/ui-app-builder-projects/tests/projects-list.client.spec.tsx \
+    packages/client/ui-app-builder-shell/tests/shell.client.spec.tsx
+...
+Test Files  3 passed (3)
+     Tests  27 passed (27)
+EXIT=0   # PASS
+```
+
+`pnpm run change-scope --base 9b38f16feda` reports the 6,554-file diff described above. Pre-existing failures carried in the 2.4 Agent Note §9 are documented in the PR body — none are caused by 2.4 work.
+
+## 4. Branch / stack state at session-7 close
+
+| Key | Value |
+|---|---|
+| Working branch | `phase2-5-handoff-draft` (advancing with this entry) |
+| 2.4 branch | `feat/phase2-4-projection-ui` @ `32b10fda0d` (PR #14 opened) |
+| 2.5 branch | `feat/phase2-5-ui-eventsource` @ `68c6ed62d7` (unchanged, awaiting 2.4 merge) |
+| Origin/master | `9b38f16feda` (unchanged — the PR is open against it) |
+| PR #14 | open, mergeable=true, 5 labels applied |
+| Working tree | clean (other than 3 untracked temp files in `.agents/drafts/`) |
+| PAT scope | authenticated as `alshahia` with `pull_requests:write` (and full repo-write); the same token was used for prior `git push` calls in sessions 5–6 |
+
+## 5. Recommended next step (fresh session)
+
+1. **Do NOT yet rebase 2.5.** Wait for PR #14 to merge. Once `origin/master` advances past `32b10fda0d`:
+2. Force-with-lease rewrite `feat/phase2-5-ui-eventsource` so its tip is `5 commits ahead of the new master tip` (i.e., drop the 1,095-commit delta now on master, keep the 5 Phase 2.5 commits). Use `--force-with-lease=feat/phase2-5-ui-eventsource:<observed-oid>` per AGENTS.md "Protect history-rewriting pushes".
+3. Push the rewritten branch, run the same pre-push checks (typecheck + the 64 2.5 tests), then open the **2.5 PR** with:
+   - `--base master`, `--head feat/phase2-5-ui-eventsource`
+   - Title: `feat(app-builder): ship deployments + preview iframe panes (Phase 2.5)`
+   - Body referencing:
+     - Agent Note: `.agents/notes/implemented/architecture/2026-09-03-phase-2-5-ui-event-source-panes.md`
+     - Carry-forward note: `.agents/notes/implemented/process/2026-09-02-v0.1.2-alpha.1-app-builder-shell-children-regression.md` (gating runtime issue, owned by slot-system team)
+     - This handoff branch at `phase2-5-handoff-draft` (advanced to session-7 entry)
+   - Labels: `enhancement`, `kind/feature`, `area/app-builder`, `area/ui`, `area/api`
+4. After 2.5 merges, land the 2.5 handoff (`phase2-5-handoff-draft`) into `master` if it is still pending.
+
+## 6. Open carry-forward items (UNCHANGED from session 6)
+
+- Runtime gating: `app-builder-shell` slot is not declared in `packages/client/ui-layout/src/client/index.ts` children table. The Phase 2.5 panes are runtime-dead until that fix lands. Per the shell children-regression agent note, the architectural decision (chain vs single kind) is owned by the slot-system team.
+- `packages/client/ui-approval/src/client/contract/slots.ts:71` missing `readonly kind: 'approval' = 'approval' as const` annotation. Latent bug masked by short-circuit in `verify-cordis-inspect-catalog`. One-line fix; deferred per AGENTS.md "no-silent-unrelated-fix". Separate follow-up PR.
+- Option A typert-emitter structural fix (move `lib/typert.*` to `lib/types/typert.*`) tracked separately; 10+ package blast radius.
+
+## 7. Resume command (fresh session, no context)
+
+```sh
+cd D:\my_deepseek_harness\deepseek-harness
+git checkout feat/phase2-5-ui-eventsource
+git log --oneline -5
+gh pr view 14 --repo ahmadmhmdsy/deepseek-harness-work --json state,mergeable,merge_state_status,labels  # or:
+curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+     https://api.github.com/repos/ahmadmhmdsy/deepseek-harness-work/pulls/14 | jq '.state,.mergeable,.merge_state_status'
+pnpm run typecheck                                                    # expect PASS
+pnpm exec vitest run packages/client/ui-app-builder-deployments packages/client/ui-app-builder-preview-iframe  # expect 24/24 PASS
+# then: wait for PR #14 merge, force-with-lease rebase, push, open 2.5 PR (see §5)
+```
