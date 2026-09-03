@@ -770,3 +770,119 @@ Take **Option B** (bypass). It keeps the rest of Phase 2.5 unblocked and isolate
 - Typecheck: PASS (clean 2.5 base)
 - Tests: 18 BFF tests PASS (10 preview-stream + 8 deployments)
 - Skipped work: Phase A.3-A.5 + Phase B/C/D/E
+---
+
+# Phase 2.5 — Session 5 Update (absorb web seed-map fix; Phase A.3 still TS2878-blocked)
+
+> Appended by the same workflow on the `phase2-5-handoff-draft` branch after the user reported the new GitHub PAT is in place and they merged "the last branch" to master. The merged PRs did not contain the web-run fixes — those lived on a different repository (`github.com/ahmadmhmdsy/deepseek-harness`, no `-work` suffix). Session 4 closed with Phase A.3 (BFF Remote wiring) blocked by TS2878 + SessionStore cascade. This session absorbs the web seed-map fix into the 2.5 stack, refreshes the handoff status, and confirms Phase A.3 remains the active unblock target.
+
+## 0. What the user provided in this session
+
+| Item | Value |
+|---|---|
+| New GitHub PAT | added to the `ahmadmhmdsy` account — `git ls-remote`, `git fetch`, `git push` all succeed against `https://github.com/ahmadmhmdsy/deepseek-harness-work.git` (origin) |
+| Origin/master HEAD | `9b38f16fed` (Merge PR #2: app-builder-web-reskin) — **strict ancestor of my Phase 2.4 base** `32b10fda0d`; zero new commits to absorb there |
+| Two merged PRs since session 4 | PR #1 (`fix/subagent-live-routing`, 5 files: subagent child routing) and PR #2 (`app-builder-web-reskin`, 9 files: CLAUDE.md symlink → regular-file copies) — **neither touches the web build/run pipeline** |
+| Web-run fixes location | **a different repository**: `https://github.com/ahmadmhmdsy/deepseek-harness.git` (no `-work` suffix), on its `master` branch |
+| Other/master HEAD | `c7b9d87c9e` (2 commits ahead of `71a23c4506` = my session-4 handoff commit) |
+| Other/master commits ahead of my 2.4 base | 7 (5 are handoff doc commits already on `phase2-5-handoff-draft`; 2 are new: web seed-map fix + agent note) |
+
+## 1. Cherry-picks absorbed into `feat/phase2-5-ui-eventsource`
+
+| New SHA | Subject | Files | Note |
+|---|---|---|---|
+| `7a4ee612d1` | `fix(web): add static-linked dsh-client-store transitive deps to apps/web` | `apps/web/package.json` (+2 devDeps: `immer ^10.1.1`, `zustand ~4.4.7`), `pnpm-lock.yaml` (+immer/zustand pins, vitest vite@8 → vite@6 hoisting fix), `.agents/notes/implemented/process/2026-09-02-v0.1.2-alpha.1-seed-manifest-fix.md` (NEW, 68 lines) | Clean 3-way merge, zero conflicts |
+| `e59c31aacf` | `docs(notes): record app-builder-shell children-table post-merge regression` | `.agents/notes/implemented/process/2026-09-02-v0.1.2-alpha.1-app-builder-shell-children-regression.md` (NEW, 133 lines) | Clean 3-way merge, zero conflicts |
+
+Stack now:
+
+```
+e59c31aacf docs(notes): record app-builder-shell children-table post-merge regression
+7a4ee612d1 fix(web): add static-linked dsh-client-store transitive deps to apps/web
+831bfb1f5e feat(api): surface subscribePreview Remote method (Phase 2.5 option 2)
+0abc84c892 feat(api): surface listDeployments + subscribeDeploymentEvents Remote methods (Phase2.5)
+32b10fda0d feat(app-builder): wire sessionCounts from projection cache to projects pane (Phase2.4)
+```
+
+## 2. What the web fix does (per the agent note)
+
+The v0.1.2-alpha.1 merge brought in `@deepseek-ai/dsh-client-store` as a staticLinked package whose `lib/index.js` retains runtime bare imports for `zustand/vanilla`, `zustand/middleware`, `zustand/shallow`, and `immer`. pnpm nests those under `apps/web/node_modules/@deepseek-ai/dsh-client-store/node_modules/`, so the Vite host cannot resolve them when bundling the shell, and Rollup tree-shakes the ClientStore namespace import. The bundled seed map then lacks `@deepseek-ai/dsh-client-store` and the runtime module table reports:
+
+```
+client-modules: require("@deepseek-ai/dsh-client-store") missed the module table
+- not a platform seed word, not a materialized module, and no registered package factory
+```
+
+which gates `dsh-api-session-controller` from materializing in the browser. Promoting `zustand` and `immer` to direct `devDependencies` of `apps/web` hoists them into `apps/web/node_modules/`; Vite resolves them when bundling the shell; the seed map emits `@deepseek-ai/dsh-client-store`; the runtime require resolves.
+
+The agent note operationalizes the static-link contract from `docs/architecture.md`:
+
+> "The Vite host resolves and deduplicates those imports and decides final chunk boundaries."
+
+— which is *not* automatic. The host must declare every staticLinked package's transitive deps in its own `devDependencies`. This is now in the 2.5 stack.
+
+The second agent note (`e59c31aacf`) records a related but separate regression: `packages/client/ui-app-builder-shell`'s merged entry tries to register a new `app-builder-shell` slot via `ctx.slots.inject('root', ...)`, but no parent entry in the merged tree declares `app-builder-shell` in its children table. The runtime check at `packages/client/ui-slots/src/index.ts:786` throws. **Mitigation is a transient boot overlay that disables the three App Builder entries** (app-builder-shell, app-builder-projects, app-builder-snapshot-bridge); the source tree is unchanged. The architectural fix is the per-area 1.5.x follow-up. **This regression currently masks the App Builder Web shell at runtime; document in Agent Note §9 of any 2.5 PR.**
+
+## 3. Verification after cherry-picks
+
+```sh
+$ pnpm install
+Lockfile passes supply-chain policies (1292 entries in 10.8s)
+Done in 22.2s using pnpm v11.7.0
+
+$ node -e "console.log(require.resolve('zustand/vanilla', { paths: ['apps/web'] }))"
+.../zustand@4.4.7_.../node_modules/zustand/vanilla.js
+
+$ node -e "console.log(require.resolve('immer', { paths: ['apps/web'] }))"
+.../immer@10.2.0/node_modules/immer/dist/cjs/index.js
+
+$ pnpm run typecheck
+build:lib:host: PASS
+typecheck:contracts-ready: PASS (exit 0)
+
+$ pnpm exec vitest run packages/app-builder/api/tests/preview-stream.host.spec.ts \\
+                       packages/app-builder/api/tests/deployments.host.spec.ts
+ Test Files  2 passed (2)
+      Tests  18 passed (18)   ← 10 preview-stream + 8 deployments
+```
+
+All green. The BFF tests + typecheck still pass after absorbing the web fix.
+
+## 4. Phase A.3 status (UNCHANGED from session 4)
+
+The web seed-map fix is **orthogonal** to the Phase A.3 TS2878 blocker. The TS2878 + SessionStore cascade still blocks wiring `appBuilderApiRemote` into `packages/api/remotes/src/client/index.ts`. The three documented options (A: structural typert emitter change; B: bypass via UI-pane-internal `ctx.remote.$mount`; C: paths entry) remain the only paths forward.
+
+**Recommendation unchanged: take Option B** in the next session. It keeps the rest of Phase 2.5 unblocked and isolates the workaround to the two new UI packages.
+
+## 5. Branch / stack state at session-5 close
+
+| Key | Value |
+|---|---|
+| Working branch | `feat/phase2-5-ui-eventsource` |
+| Tip | `e59c31aacf` (web fix + agent note cherry-picked) |
+| Working tree | clean |
+| Typecheck | PASS |
+| BFF tests | 18/18 PASS (10 preview-stream + 8 deployments) |
+| New commits pushed | none yet (cherry-picks are local on `feat/phase2-5-ui-eventsource`) |
+| Handoff branch | `phase2-5-handoff-draft` @ `71a23c4506` (about to advance with this entry) |
+| Origin/master | `9b38f16fed` — ancestor of my 2.4 base; no new commits to absorb |
+| Origin/other/master (`ahmadmhmdsy/deepseek-harness`) | `c7b9d87c9e` — has the web fix + agent note; both cherry-picked in |
+
+## 6. Recommended next step (fresh session)
+
+1. Push `feat/phase2-5-ui-eventsource` (with the two new cherry-pick commits) to origin/feat/phase2-5-ui-eventsource — lefthook pre-commit + pre-push will run.
+2. Take **Option B**: in the new UI pane packages (`ui-app-builder-deployments` + `ui-app-builder-preview-iframe`), do `ctx.remote.$mount(appBuilderApiRemote)` inside each pane's own `apply` before reading `ctx.remote.appBuilder.*`.
+3. Then resume Phase 2.5 task list at task 6 (scaffold `ui-app-builder-deployments`) per session-3 task list.
+4. The `app-builder-shell children-table regression` (per agent note `e59c31aacf`) blocks the Web shell from materializing in the browser. This is out of scope for Phase 2.5; document and defer. The `ui-app-builder-{shell,projects}` boot overlay disables it.
+
+## 7. Resume command (fresh session, no context)
+
+```sh
+cd D:\my_deepseek_harness\deepseek-harness
+git checkout feat/phase2-5-ui-eventsource
+git log --oneline -5
+pnpm run typecheck                                                    # expect PASS
+pnpm exec vitest run packages/app-builder/api/tests/preview-stream.host.spec.ts   # expect 10/10 PASS
+pnpm exec vitest run packages/app-builder/api/tests/deployments.host.spec.ts    # expect 8/8 PASS
+# then resume at task 1 (Option B) → task 6 (UI panes) per session-3 task list
+```
