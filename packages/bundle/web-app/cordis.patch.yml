@@ -143,14 +143,6 @@
     - id: client-hmr
       name: '@deepseek-ai/dsh-client-hmr'
 
-    # App Builder host-side state projector: subscribes to project/created
-    # and app-builder-preview/dev-state, atomically writes the snapshot
-    # file, and serves GET /__dsh/app-builder/snapshot.json on ctx.webServer.
-    # Mounted before the client plugins so the snapshot endpoint is live
-    # by the time the projects pane starts polling.
-    - id: app-builder-snapshot-bridge
-      name: '@deepseek-ai/dsh-app-builder-snapshot-bridge'
-      inject: [webServer, appBuilderProjects]
 
     # ── browser plugin roster (dsh.client rows; node halves are layer-2 hosts) ──
 
