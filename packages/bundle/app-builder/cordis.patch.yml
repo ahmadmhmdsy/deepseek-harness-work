@@ -22,14 +22,25 @@
       name: '@deepseek-ai/dsh-app-builder-preview'
 
     # App Builder persona: scopes the agent to project scaffolding + iteration.
+    # Disabled at host scope because the base bundle already registers the
+    # `deployment:persona` prompt section via `@deepseek-ai/dsh-system-prompt`
+    # and `@deepseek-ai/dsh-persona`; mounting `app-builder-persona` here would
+    # throw `prompt section "deployment:persona" is already registered`. The
+    # App Builder identity belongs to an agent preset, mounted per-agent via
+    # `agent.ctx` (see `packages/app-builder/persona/src/index.ts:46-47`).
     - id: app-builder-persona
       name: '@deepseek-ai/dsh-app-builder-persona'
+      disabled: true
 
     # Snapshot bridge: in-memory { projects, devServers } projection the
     # browser projects pane polls; also feeds the BFF's getPreview method.
+    # The plugin assigns `ctx.appBuilderSnapshotBridge` (see
+    # `packages/app-builder/snapshot-bridge/src/index.ts:327`), so the row
+    # must declare `provide` for Cordis's property proxy to accept it.
     - id: app-builder-snapshot-bridge
       name: '@deepseek-ai/dsh-app-builder-snapshot-bridge'
       inject: [webServer, appBuilderProjects]
+      provide: [appBuilderSnapshotBridge]
 
     # BFF Typert Remote: 13 Remote methods (project CRUD, session lifecycle,
     # SSE event subscription, preview, deploy, usage). Auto-discovered by the
@@ -39,8 +50,11 @@
     - id: app-builder-api
       name: '@deepseek-ai/dsh-app-builder-api'
 
-    - id: api-session-controller
-      name: '@deepseek-ai/dsh-api-session-controller'
-
-    - id: api-remotes
-      name: '@deepseek-ai/dsh-api-remotes'
+    # NOTE: `@deepseek-ai/dsh-api-session-controller` is intentionally NOT
+    # declared here. Web-app already declares it as id `session-controller`
+    # earlier in the bundle order (packages/bundle/web-app/cordis.patch.yml:87),
+    # and the plugin registers the singleton `sessionController` service on
+    # first mount. A second row here throws
+    # "service \"sessionController\" has been registered at <SessionController>".
+    # `app-builder-api`'s session methods inject `ctx.sessionController`,
+    # which web-app's row provides.
