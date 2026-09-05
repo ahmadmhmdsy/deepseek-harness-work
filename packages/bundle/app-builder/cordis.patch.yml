@@ -8,6 +8,8 @@
     # (ctx.sessions + ctx.sessionQuery).
     - id: app-builder-project
       name: '@deepseek-ai/dsh-app-builder-project'
+      config:
+        defaultProfile: app-builder
 
     # Scaffold tool: composes dsh-tool-fs + dsh-tool-str-replace-editor +
     # dsh-tool-bash to materialize a template project under the project cwd.
@@ -27,6 +29,7 @@
     # browser projects pane polls; also feeds the BFF's getPreview method.
     - id: app-builder-snapshot-bridge
       name: '@deepseek-ai/dsh-app-builder-snapshot-bridge'
+      inject: [webServer, appBuilderProjects]
 
     # BFF Typert Remote: 13 Remote methods (project CRUD, session lifecycle,
     # SSE event subscription, preview, deploy, usage). Auto-discovered by the
