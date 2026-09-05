@@ -150,6 +150,7 @@
     # by the time the projects pane starts polling.
     - id: app-builder-snapshot-bridge
       name: '@deepseek-ai/dsh-app-builder-snapshot-bridge'
+      inject: [webServer, appBuilderProjects]
 
     # ── browser plugin roster (dsh.client rows; node halves are layer-2 hosts) ──
 
@@ -316,7 +317,7 @@
     - id: app-builder-projects
       name: '@deepseek-ai/dsh-client-ui-app-builder-projects'
       config:
-        snapshotUrl: !!js '/__dsh/app-builder/snapshot.json'
+        snapshotUrl: '/__dsh/app-builder/snapshot.json'
 
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
