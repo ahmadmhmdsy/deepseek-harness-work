@@ -142,3 +142,61 @@ PR is successful when:
 ## Estimated effort
 
 ~45-50 minutes total.
+
+
+## Final outcome (2026-09-05)
+
+**PR opened**: #18 — https://github.com/ahmadmhmdsy/deepseek-harness-work/pull/18
+- base: `adopt/api-gateway-cluster` (Phase 1.5.5)
+- head: `fix/app-builder-web-boot-wiring` @ `86019699077a9104fbcc931a95af96ba7c304ad4`
+- title: `fix(bundle/web-app, bundle/app-builder): wire App Builder plugins into the Web boot tree (4 wiring bugs)`
+- labels: `kind/bugfix`, `area/bundle/web-app`, `area/bundle/app-builder`
+- native Issue Type "Bug": not applied — repo-level `issueTypes` returns `null` on this org/repo even though types exist at the REST endpoint; GraphQL schema confirms `IssueType` exists but `UpdateIssueIssueType` mutation requires repo-level enablement. Documented as known limitation.
+
+**Commit**: `86019699077a9104fbcc931a95af96ba7c304ad4`
+- 3 files, 149 insertions, 1 deletion
+- lefthook pre-commit (whitespace ✓, vendor-manifest-guard ✓) + pre-push (typecheck ✓) all passed
+- `pnpm run verify-cordis-config` → 155 config files passed
+
+**Phase 3 re-test result on port 3081**:
+The first re-test attempt surfaced a **NEW bug** that the original plan did not anticipate:
+
+```
+Error: dsh: plugin tree failed to load:
+  failed to apply loader entry include (cordis:include):
+  duplicate loader entry id: app-builder-snapshot-bridge
+TypeError: duplicate loader entry id: app-builder-snapshot-bridge
+    at EntryGroup.update (vendor/loader/src/config/group.ts:64:31)
+```
+
+The Cordis loader enforces **unique loader entry ids** across the composed tree
+(`vendor/loader/src/config/group.ts:64`) — it does NOT do last-write-wins as the
+original plan assumed. Declaring `app-builder-snapshot-bridge` in BOTH bundle
+patches therefore fails before either row applies.
+
+**The 4 fixes in this PR remain correct and load-bearing** — each row needs the
+declared fields to apply correctly once it survives composition. But completing
+the App Builder Web boot requires an additional structural change tracked as a
+follow-up PR.
+
+## Follow-up PR (out of scope for #18)
+
+Choose ONE bundle as the home for `app-builder-snapshot-bridge` and remove it
+from the other, OR provide it as an out-of-tree dependency that the other
+bundle's consumers declare. Suggested resolution:
+
+1. Keep `app-builder-snapshot-bridge` row in `app-builder/cordis.patch.yml`
+   (the bundle that owns the App Builder Host BFF cluster)
+2. Remove the duplicate row from `web-app/cordis.patch.yml`
+3. Verify `web-app`'s consumers of `webServer` / `appBuilderProjects` are
+   satisfied by the app-builder bundle's instance
+
+Estimated effort: 30-45 min including re-test.
+
+## Other known carry-forward failures (unchanged from PROJECT-MEMORY §4)
+
+- Children-table gating in `ui-layout` (runtime-dead shells)
+- Typert-emitter structural fix (Phase 2.5 Option A)
+- `getTranscript` test fixture realignment
+- `ui-approval` missing `readonly kind`
+- `dsh-session-projection` may not instantiate in runtime tree (untested after fix #4)
